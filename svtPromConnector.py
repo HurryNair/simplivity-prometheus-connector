@@ -45,6 +45,21 @@ vm_state = {
     'REMOVED': 3
 }
 
+raid_card_state = {
+    'RED' : 0,
+    'GREEN' : 1
+}
+
+battery_state = {
+    'DEGRADED' : 0,
+    'HEALTHY' : 1
+}
+
+accelerator_card_state = {
+    'RED' : 0,
+    'GREEN' : 1
+}
+
 capacitymetric = [
     'allocated_capacity',
     'free_space',
@@ -73,6 +88,12 @@ performancemetric = [
     'write_latency'
 ]
 
+hardwaremetric = [
+    'raid_card_status',
+    'battery_health',
+    'accelerator_card_status',
+    'ssd_life_remaining'
+]
 
 def logwriter(f, text):
         output = str(datetime.today()) + ": "+text+" \n"
@@ -163,6 +184,27 @@ def getNodeCapacity(data):
                 ndata[y['name']] = y['data_points'][-1]['value']/BtoGB
         return ndata
 
+def getNodeHardware(data):
+    raid_card = data['raid_card']
+    battery = data['battery']
+    accelerator_card = data['accelerator_card']
+    logical_drives = data['logical_drives']
+    ndata = {
+        'raid_card_status' : 'RED',
+        'battery_health' : 'DEGRADED',
+        'accelerator_card_status' : 'RED',
+        'ssd_life_remaining' : 0
+    }
+    ndata['raid_card_status'] = raid_card_state(raid_card['status'])
+    ndata['battery_health'] = battery_state(battery['health'])
+    ndata['accelerator_card_status'] = accelerator_card_state(accelerator_card['status'])
+    for i in range(len(logical_drives)):
+        drive_count = len(logical_drives[i]['drive_sets'][0]['physical_drives'])
+        for j in range(drive_count):
+            ndata['ssd_life_remaining'] += logical_drives[i]['drive_sets'][0]['physical_drives'][j]['life_remaining']
+        ndata['ssd_life_remaining'] /= drive_count
+    ndata['ssd_life_remaining'] /= len(data)
+    return ndata
 
 # Main ###########################################################################
 if __name__ == "__main__":
@@ -214,7 +256,7 @@ if __name__ == "__main__":
     """
     Start an endless loop to capture the current status every TIME_RANGE
     Errors will be catched with an error routine
-    Please note that the connection must be refreshed after 24h or afte 10 minutes inactivity.
+    Please note that the connection must be refreshed after 24h or after 10 minutes inactivity.
     """
 
     while True:
@@ -259,7 +301,10 @@ if __name__ == "__main__":
                     snode.labels(cn, metricname).set(y[metricname])
                 for metricname in performancemetric:
                     snode.labels(cn, metricname).set(perf[metricname])
-
+                hw_metrics = getNodeHardware(svt.GetHostHardware(x['name'], timerange=mrange, resolution=mresolution)[0])
+                for metricname in hardwaremetric:
+                    snode.labels(cn, metricname).set(hw_metrics[metricname])
+                
             """  VM metrics: """
             for x in vms:
                 cn = (x['name'].split('.')[0]).replace('-', '_')
