@@ -52,3 +52,4 @@ if __name__ == "__main__":
                         print(str(e.message))
                         print("close SimpliVity connection")
                         exit(-200)
+
