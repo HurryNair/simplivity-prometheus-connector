@@ -39,15 +39,10 @@ node_state = {
     'REMOVED': 5
 }
 
-vm_state = {
-    'ALIVE': 1,
-    'DELETED': 2,
-    'REMOVED': 3
-}
-
 raid_card_state = {
     'RED' : 0,
-    'GREEN' : 1
+    'GREEN' : 1,
+    'YELLOW' : 2
 }
 
 battery_state = {
@@ -57,7 +52,14 @@ battery_state = {
 
 accelerator_card_state = {
     'RED' : 0,
-    'GREEN' : 1
+    'GREEN' : 1,
+    'YELLOW' : 2
+}
+
+vm_state = {
+    'ALIVE': 1,
+    'DELETED': 2,
+    'REMOVED': 3
 }
 
 capacitymetric = [
@@ -93,6 +95,11 @@ hardwaremetric = [
     'battery_health',
     'accelerator_card_status',
     'ssd_life_remaining'
+]
+
+vmcapacitymetric = [
+    'hypervisor_consumed_space',
+    'hypervisor_consumed_memory'
 ]
 
 def logwriter(f, text):
@@ -185,26 +192,35 @@ def getNodeCapacity(data):
         return ndata
 
 def getNodeHardware(data):
-    raid_card = data['raid_card']
-    battery = data['battery']
-    accelerator_card = data['accelerator_card']
-    logical_drives = data['logical_drives']
-    ndata = {
-        'raid_card_status' : 'RED',
-        'battery_health' : 'DEGRADED',
-        'accelerator_card_status' : 'RED',
-        'ssd_life_remaining' : 0
-    }
-    ndata['raid_card_status'] = raid_card_state(raid_card['status'])
-    ndata['battery_health'] = battery_state(battery['health'])
-    ndata['accelerator_card_status'] = accelerator_card_state(accelerator_card['status'])
-    for i in range(len(logical_drives)):
-        drive_count = len(logical_drives[i]['drive_sets'][0]['physical_drives'])
-        for j in range(drive_count):
-            ndata['ssd_life_remaining'] += logical_drives[i]['drive_sets'][0]['physical_drives'][j]['life_remaining']
-        ndata['ssd_life_remaining'] /= drive_count
-    ndata['ssd_life_remaining'] /= len(data)
-    return ndata
+        raid_card = data['raid_card']
+        battery = data['battery']
+        accelerator_card = data['accelerator_card']
+        logical_drives = data['logical_drives']
+        ndata = {
+            'raid_card_status' : 'RED',
+            'battery_health' : 'DEGRADED',
+            'accelerator_card_status' : 'RED',
+            'ssd_life_remaining' : 0
+        }
+        ndata['raid_card_status'] = raid_card_state[raid_card['status']]
+        ndata['battery_health'] = battery_state[battery['health']]
+        ndata['accelerator_card_status'] = accelerator_card_state[accelerator_card['status']]
+        for i in range(len(logical_drives)):
+            drive_count = len(logical_drives[i]['drive_sets'][0]['physical_drives'])
+            for j in range(drive_count):
+                ndata['ssd_life_remaining'] += logical_drives[i]['drive_sets'][0]['physical_drives'][j]['life_remaining']
+            ndata['ssd_life_remaining'] /= drive_count
+        ndata['ssd_life_remaining'] /= len(logical_drives)
+        return ndata
+
+def getVmCapacity(data):
+        ndata = {
+            'hypervisor_consumed_space': 0,
+            'hypervisor_consumed_memory': 0
+        }
+        ndata['hypervisor_consumed_space'] = ((data['virtual_machine']['hypervisor_allocated_capacity'] - data['virtual_machine']['hypervisor_free_space'])/data['virtual_machine']['hypervisor_allocated_capacity'])*100
+        ndata['hypervisor_consumed_memory'] = (data['virtual_machine']['hypervisor_consumed_memory']/data['virtual_machine']['hypervisor_total_memory'])*100
+        return ndata
 
 # Main ###########################################################################
 if __name__ == "__main__":
@@ -256,7 +272,7 @@ if __name__ == "__main__":
     """
     Start an endless loop to capture the current status every TIME_RANGE
     Errors will be catched with an error routine
-    Please note that the connection must be refreshed after 24h or after 10 minutes inactivity.
+    Please note that the connection must be refreshed after 24h or afte 10 minutes inactivity.
     """
 
     while True:
@@ -293,6 +309,7 @@ if __name__ == "__main__":
                                                         resolution=mresolution)['metrics'])
                 perf = getPerformanceAverage(svt.GetHostMetrics(x['name'], timerange=mrange,
                                              resolution=mresolution)['metrics'])
+                hw_metrics = getNodeHardware(svt.GetHostHardware(x['name'])['host'])
                 cn = (x['name'].split('.')[0]).replace('-', '_')
                 snode.labels(cn, 'State').set(node_state[x['state']])
                 for metricname in capacitymetric:
@@ -301,19 +318,21 @@ if __name__ == "__main__":
                     snode.labels(cn, metricname).set(y[metricname])
                 for metricname in performancemetric:
                     snode.labels(cn, metricname).set(perf[metricname])
-                hw_metrics = getNodeHardware(svt.GetHostHardware(x['name'], timerange=mrange, resolution=mresolution)[0])
                 for metricname in hardwaremetric:
                     snode.labels(cn, metricname).set(hw_metrics[metricname])
-                
+
             """  VM metrics: """
             for x in vms:
-                cn = (x['name'].split('.')[0]).replace('-', '_')
-                svm.labels(cn, 'state').set(vm_state[x['state']])
-                """
-                perf=getPerformanceAverage(svt.GetVMMetric(x['name'],timerange=mrange,resolution=mresolution)['metrics'])
-                for metricname in performancemetric:
-                    svm.labels(cn,metricname).set(perf[metricname])
-                """
+                if x['state'] == 'ALIVE':
+                    y = getVmCapacity(svt.GetVMbyID(x['id']))
+                    cn = (x['name'].split('.')[0]).replace('-', '_')
+                    svm.labels(cn, 'state').set(vm_state[x['state']])
+                    for metricname in vmcapacitymetric:
+                        svm.labels(cn, metricname).set(y[metricname])
+                    
+            perf=getPerformanceAverage(svt.GetVMMetric(x['name'],timerange=mrange,resolution=mresolution)['metrics'])
+            for metricname in performancemetric:
+                svm.labels(cn,metricname).set(perf[metricname])
 
             """ DataStore metrics """
             for x in datastores:
