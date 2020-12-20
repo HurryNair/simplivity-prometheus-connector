@@ -354,3 +354,4 @@ class SvtError(Exception):
     def __init__(self, expression, status, message):
         self.expression = expression
         self.message = message
+        self.status = status
