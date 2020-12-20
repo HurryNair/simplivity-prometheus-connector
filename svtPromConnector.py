@@ -328,14 +328,11 @@ if __name__ == "__main__":
                     cn = (x['name'].split('.')[0]).replace('-', '_')
                     svm.labels(cn, 'state').set(vm_state[x['state']])
                     for metricname in vmcapacitymetric:
-                        svm.labels(cn, metricname).set(y[metricname])
-                    
+                        svm.labels(cn, metricname).set(y[metricname])    
                 perf=getPerformanceAverage(svt.GetVMMetric(x['name'],timerange=mrange,resolution=mresolution)['metrics'])
                 for metricname in performancemetric:
                     svm.labels(cn,metricname).set(perf[metricname])
             
-
-
             """ DataStore metrics """
             for x in datastores:
                 cn = (x['name']).replace('-', '_')
