@@ -166,6 +166,10 @@ class SimpliVity:
         else:
             url = self.url+'virtual_machines?show_optional_field=true'
         return self.doGet(url)
+    
+    def GetVMbyID(self, virtual_machine_id):
+        url = self.url+'virtual_machines/'+virtual_machine_id
+        return self.doGet(url)
 
     def GetVMId(self, vmname):
         x = self.GetVM(vmname)['virtual_machines']
