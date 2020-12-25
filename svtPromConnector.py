@@ -332,7 +332,7 @@ if __name__ == "__main__":
                 perf=getPerformanceAverage(svt.GetVMMetric(x['name'],timerange=mrange,resolution=mresolution)['metrics'])
                 for metricname in performancemetric:
                     svm.labels(cn,metricname).set(perf[metricname])
-            
+                
             """ DataStore metrics """
             for x in datastores:
                 cn = (x['name']).replace('-', '_')
