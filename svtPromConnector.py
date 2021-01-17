@@ -366,7 +366,7 @@ if __name__ == "__main__":
                 if vm not in active_vms:
                     inactive_vms.append(vm)
 
-            for vm in active_vms:
+            for vm in inactive_vms:
                 del vm_epochs[vm]
 
             for vm in active_vms:
