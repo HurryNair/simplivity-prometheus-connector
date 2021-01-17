@@ -275,6 +275,14 @@ if __name__ == "__main__":
     Please note that the connection must be refreshed after 24h or afte 10 minutes inactivity.
     """
 
+    # Define a dictionary
+    # Outside while scope
+    # Add Active VMs here
+    # And map them to 
+    # their epoch
+
+    vm_epochs = {}
+
     while True:
         try:
             t0 = time.time()
@@ -322,8 +330,21 @@ if __name__ == "__main__":
                     snode.labels(cn, metricname).set(hw_metrics[metricname])
 
             """  VM metrics: """
+            
+            # Define an empty list
+            # Make a note of all active VMs
+            # every monitoring cycle
+
+            # Use this list to ensure
+            # that d remains up to date
+            
+            active_vms = []
+
             for x in vms:
                 if x['state'] == 'ALIVE':
+                    active_vms.append(x['name'])
+                    if x['name'] not in vm_epochs:
+                        vm_epochs[x['name']] = t0
                     y = getVmCapacity(svt.GetVMbyID(x['id']))
                     cn = (x['name'].split('.')[0]).replace('-', '_')
                     svm.labels(cn, 'state').set(vm_state[x['state']])
@@ -331,8 +352,32 @@ if __name__ == "__main__":
                         svm.labels(cn, metricname).set(y[metricname])    
                 perf=getPerformanceAverage(svt.GetVMMetric(x['name'],timerange=mrange,resolution=mresolution)['metrics'])
                 for metricname in performancemetric:
-                    svm.labels(cn,metricname).set(perf[metricname])
-                
+                    svm.labels(cn,metricname).set(perf[metricname]) 
+
+            # Ensure all vms in hash
+            # are still active
+            # append inactive ones
+            # to another list & fire alerts
+            # for all VMs in this list
+
+            inactive_vms = []
+
+            for vm in vm_epochs:
+                if vm not in active_vms:
+                    inactive_vms.append(vm)
+
+            for vm in active_vms:
+                del vm_epochs[vm]
+
+            for vm in active_vms:
+                cn = (vm['name'].split('.')[0]).replace('-', '_')
+                svm.labels(cn, 'uptime').set(t0 - vm_epochs[vm])
+
+            # Calculate uptime of an active vm
+            # By doing a t0 - vm_epochs[vm]
+
+
+
             """ DataStore metrics """
             for x in datastores:
                 cn = (x['name']).replace('-', '_')
