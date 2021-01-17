@@ -370,7 +370,7 @@ if __name__ == "__main__":
                 del vm_epochs[vm]
 
             for vm in active_vms:
-                cn = (vm['name'].split('.')[0]).replace('-', '_')
+                cn = (vm.split('.')[0]).replace('-', '_')
                 svm.labels(cn, 'uptime').set(t0 - vm_epochs[vm])
 
             # Calculate uptime of an active vm
