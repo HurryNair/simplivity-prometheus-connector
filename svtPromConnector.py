@@ -99,7 +99,8 @@ hardwaremetric = [
 
 vmcapacitymetric = [
     'hypervisor_consumed_space',
-    'hypervisor_consumed_memory'
+    'hypervisor_consumed_memory',
+    'hypervisor_memory_usage'
 ]
 
 def logwriter(f, text):
@@ -216,10 +217,12 @@ def getNodeHardware(data):
 def getVmCapacity(data):
         ndata = {
             'hypervisor_consumed_space': 0,
-            'hypervisor_consumed_memory': 0
+            'hypervisor_consumed_memory': 0,
+            'hypervisor_memory_usage' : 0
         }
         ndata['hypervisor_consumed_space'] = ((data['virtual_machine']['hypervisor_allocated_capacity'] - data['virtual_machine']['hypervisor_free_space'])/data['virtual_machine']['hypervisor_allocated_capacity'])*100
         ndata['hypervisor_consumed_memory'] = (data['virtual_machine']['hypervisor_consumed_memory']/data['virtual_machine']['hypervisor_total_memory'])*100
+        ndata['hypervisor_memory_usage'] = data['virtual_machine']['hypervisor_consumed_memory']
         return ndata
 
 # Main ###########################################################################
